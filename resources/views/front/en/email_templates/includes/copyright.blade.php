@@ -1,0 +1,1 @@
+<p>© 2020 -Al Hakmiah . All rights reserved.</p>

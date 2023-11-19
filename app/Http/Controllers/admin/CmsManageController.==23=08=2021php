@@ -1,0 +1,311 @@
+<?php
+
+namespace App\Http\Controllers\admin;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Models\Cms;
+use App\Models\CmsImage;
+use App\Http\Requests\CmsRequest;
+use Helper, AdminHelper, Image, Validator,  View;
+use Illuminate\Support\Facades\Hash;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CmsExport;
+use Auth;
+use Redirect;
+use Carbon\Carbon;
+use Yajra\Datatables\Datatables;
+use Config;
+
+
+
+class CmsManageController extends Controller
+{
+    public $data= array();
+    private static $paginationLimit= 10;
+
+
+    /*****************************************************/
+    # CmsManageController
+    # Function name : cmsList
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : Cms Listing
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function cmsList(Request $request){
+        $this->data['page_title']="Cms List";
+        $this->data['panel_title']="Cms List";
+        $searchKeyword = $_GET['q'] ?? '' ;
+        $cmsObj= Cms::select('*');  
+            if(!empty($searchKeyword))
+            $cmsObj->orWhere('name_en', 'like', '%' .trim($searchKeyword) . '%');
+            $cmsObj->whereNull('deleted_at')->orderBy('id','desc')->get();  
+       $this->data['cmsList']=$cmsObj->paginate(self::$paginationLimit);
+        
+        return view('admin.cmsmanagement.cms-list',$this->data);
+    }
+
+    /*****************************************************/
+    # CmsManageController
+    # Function name : cmsAdd
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : Cms Add
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+    public function cmsAdd (Request $request){
+        $this->data['page_title']='Cms Create ';
+        $this->data['panel_title']='Cms Create ';
+        //$cmsId = decrypt($request->encString, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+        //$this->data['details'] = Cms::with(['SliderImage'])->get();
+        //$this->data['encryptCode'] = $encryptString;
+        return view('admin.cmsmanagement.cms-add',$this->data);
+    }
+
+    /*****************************************************/
+    # CmsManageController
+    # Function name : cmsSave
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : Cms Save
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function cmsSave(CmsRequest $request){
+        
+        try
+        {
+        	if ($request->isMethod('POST'))
+        	{
+                $cmsId = !empty($request->encString) ? decrypt($request->encString, Config::get('Constant.ENC_KEY')) : 0;
+                
+                $cmsModelObj = ($cmsId == 0 ) ? new Cms : Cms::findOrFail($cmsId);
+                $cmsModelObj->name_en             = trim($request->name_en, ' ');
+                $cmsModelObj->name_ar             = trim($request->name_ar, ' ');
+                $cmsModelObj->description_en      = $request->description_en;
+                $cmsModelObj->description_ar      = $request->description_ar;
+                
+                $cmsModelObj->slug_name = Str::slug($request->name_en, '-');   
+                
+                $cmsModelObj->page_title_en             = trim($request->page_title_en, ' ');
+                $cmsModelObj->page_title_ar             = trim($request->page_title_ar, ' ');
+
+                $cmsModelObj->displayabout        = $request->displayabout;
+                $cmsModelObj->display_order        = $request->display_order;
+               
+                $cmsModelObj->status              = $request->status;
+                $cmsModelObj->created_at          = Carbon::now();
+                $cmsModelObj->updated_at          = Carbon::now();
+                if($request->file('banner_image')) {
+                    $files=$request->file('banner_image');
+                    $fullFileName = time().'.'.$files->getClientOriginalExtension();
+                    $destinationPath = 'assets/cms/banner_images';
+                    $uploadResponse  = $files->move($destinationPath,$fullFileName);
+                    $cmsModelObj->banner_image=$fullFileName; 
+                              
+                }
+                $save  =  $cmsModelObj->save();            
+
+                if ($save) {
+                    // $cmsImages= CmsImage::where('cms_id',$cmsId)->get();
+                    // foreach($cmsImages as $cmsImage){
+                    //     if(!empty($request->bannerImage[$cmsImage->id]) && $request->bannerImage[$cmsImage->id] == "Y" )
+                    //         CmsImage::where(["id"=>$cmsImage->id])->update(['is_checked' => 'Y']);
+                    //     else
+                    //         CmsImage::where(["id"=>$cmsImage->id])->update(['is_checked' => 'N']);
+                    // }
+
+                    // if($request->file('banner_image')) {
+                    //     $files=$request->file('banner_image');
+                    //     foreach($files as $key=>$file){
+                    //         $file_name            =time().'-'.$key;
+                    //         $extension            = $file->getClientOriginalExtension();
+                    //         $fullFileName         = $file_name.'.'.$extension; 
+                    //         $destinationPath      = 'assets/cms/banner_images';
+                    //         $uploadResponse       = $file->move($destinationPath,$fullFileName); 
+
+                    //         $cmsImageModelObj= new CmsImage;
+                    //         $cmsImageModelObj->cms_id=$cmsModelObj->id;
+                    //         $cmsImageModelObj->path=$fullFileName; 
+                    //         $cmsImageModelObj->is_checked = (!empty($request->upload_banner_image[$key]) && $request->upload_banner_image[$key] =='Y' ) ? 'Y' : 'N';
+                    //         $cmsImageModelObj->status='A';
+                    //         $cmsImageModelObj->created_at               =Carbon::now();
+                    //         $cmsImageModelObj->updated_at               =Carbon::now();
+                    //         $saveImages=$cmsImageModelObj->save();    
+                    //     }
+                    // } 
+
+                   
+                                       
+
+                    $msg = ($cmsId == 0 ) ? 'Cms has been added successfully.' : 'Cms has been updated successfully.';
+                    return redirect()->route('admin.cms-management.cms.list')->with('success',$msg);;
+                } else {
+                    return redirect()->back()->with('error', 'An error occurred while adding the Cms');
+                }
+				
+			}
+			
+		} catch (Exception $e) {
+			return redirect()->back()->with('error', $e->getMessage());
+        } 
+    }
+
+    /*****************************************************/
+    # CmsManageController
+    # Function name : cmsEdit
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : Cms Edit
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+
+    public function cmsEdit(Request $request, $encryptString) {
+        $this->data['page_title']='Cms Edit';
+        $this->data['panel_title']='Cms Edit';
+        $cmsId = decrypt($encryptString, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+        $this->data['details'] = Cms::with(['SliderImage'])->findOrFail($cmsId);
+        $this->data['encryptCode'] = $encryptString;
+        //dd($this->data['details']);
+        return view('admin.cmsmanagement.cms-edit',$this->data); 
+    }
+
+    /*****************************************************/
+    # CmsManageController
+    # Function name : resetcmsStatus
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : Reset Cms Status
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function resetcmsStatus(Request $request){
+    
+        $response['has_error']=1;
+        $response['msg']="Something went wrong.Please try again later.";
+
+        $cmsId = decrypt($request->encryptCode, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+
+        $cmsObj = Cms::findOrFail($cmsId);
+        $updateStatus = $cmsObj->status == 'A' ? 'I' : 'A'; 
+        $cmsObj->status=$updateStatus;
+        //$cmsObj->updated_at=Carbon::now();
+        //$cmsObj->updated_by=Auth::guard('admin')->user()->id;
+        $saveResponse=$cmsObj->save();       
+        if($saveResponse){
+            $response['has_error']=0;
+            $response['msg']="Successfully changed status.";
+        }
+        return $response;
+    }
+
+
+    // public function view(Request $request, $encryptString){
+        
+          
+                       
+    //         $this->data['page_title']='Cms View ';
+    //         $this->data['panel_title']='Cms View ';
+           
+    //         $userId = decrypt($request->encryptCode, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+    //         if($userId){
+    //             $pageDetails = new Cms;    
+    //             $pageDetails = $pageDetails->where('id', $userId)->first(); 
+    //             if($pageDetails != NULL) {
+                    
+    //             } else {
+    //                 return Redirect::back()->with('alert-danger', 'No records found');
+    //             }
+    //         } else {
+    //             return redirect()->back()
+    //             ->with('error','An error occurred while updating the Cms.');
+    //         }
+    //         return view('admin.cmsmanagement.cms-view',['pageDetails'=> $pageDetails],$this->data);
+        
+
+    // }
+   
+                         
+        
+        
+    /*****************************************************/
+    # CmsManageController
+    # Function name : cmsDelete
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : Cms Delete
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+    
+    public function cmsDelete(Request $request,$encryptString)
+    {
+
+        $cmsId = decrypt($encryptString, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+        $details = Cms::findOrFail($cmsId);
+
+
+        if ($details) {
+            $details->deleted_at=Carbon::now();
+
+            $details->save();
+            return redirect()->route('admin.cms-management.cms.list')->with('success','Cms has been deleted successfully!');
+        } else {
+            $request->session()->flash('alert-danger', 'An error occurred while deleting the Cms list');
+             return redirect()->back();
+        }
+    }
+    /*****************************************************/
+    # CmsManageController
+    # Function name : ImageDelete
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : Cms Multiple Delete
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function ImageDelete(Request $request){
+
+        // dd($request->all());
+        $response['has_error']= 1;
+        $response['msg']= 'Something went wrong. Please try again later.';
+        $cmsimageId = decrypt($request->encryptId, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+    
+        $cmsImageModelObj = CmsImage::findOrFail($cmsimageId);
+        $saveResponse= $cmsImageModelObj->delete();
+    
+        if($saveResponse){
+            $response['has_error']= 0;
+            $response['msg']= 'Successfully deleted.';
+        }
+    
+        return $response;
+    
+    }
+    public function cmsExport(){
+        // $currentTimeStamp = time().'directjobpost_list';
+        // $response=[];
+        ob_end_clean();
+        ob_start();
+    return Excel::download(new CmsExport, 'cms_list-'.time().'.xlsx');
+    }
+
+
+}

@@ -1,0 +1,289 @@
+<?php
+
+namespace App\Http\Controllers\admin;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Models\News; 
+use App\Models\Brand;
+use App\Models\BrandGuideline;
+use App\Models\PressKit;
+use App\Models\MediaNews;
+use App\Models\CmsImage;
+use App\Http\Requests\MediaNewsRequest;
+use App\Http\Requests\UpdateNewsMediaRequest;
+use App\Http\Requests\UpdatePresskitRequest;
+use App\Http\Requests\NewsRequest;
+use App\Http\Requests\PressRequest;
+use App\Http\Requests\updateNewsRequest;
+use App\Http\Requests\BrandGuideLineRequest;
+use App\Http\Requests\updateBrandGuidelineRequest;
+use Helper, AdminHelper, Image, Validator,  View;
+use Illuminate\Support\Facades\Hash;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CmsExport;
+use Auth;
+use Redirect;
+use Carbon\Carbon;
+use Yajra\Datatables\Datatables;
+use Config;
+
+
+
+class OurbrandController extends Controller
+{
+    public $data= array();
+    private static $paginationLimit= 10;
+
+
+    /*****************************************************/
+    # OurbrandController
+    # Function name : newsList
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : news Listing
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function ourbrandList(Request $request){
+        $this->data['page_title']="Our Brand List";
+        $this->data['panel_title']="Our Brand List";
+        $searchKeyword = $_GET['q'] ?? '' ;
+        $brandObj= Brand::select('*');  
+            if(!empty($searchKeyword))
+            $brandObj->orWhere('title_en', 'like', '%' .trim($searchKeyword) . '%');
+            $brandObj->orWhere('title_ar', 'like', '%' .trim($searchKeyword) . '%');
+            $brandObj->whereNull('deleted_at')->orderBy('id','desc')->get();  
+       $this->data['brandList']=$brandObj->paginate(self::$paginationLimit);
+        
+        return view('admin.ourbrand.list',$this->data);
+    }
+
+
+    public function ourbrandAdd (Request $request){
+        $this->data['page_title']='Brand Create ';
+        $this->data['panel_title']='Brand Create ';
+    
+        return view('admin.ourbrand.add',$this->data);
+    }
+
+    /*****************************************************/
+    # FaqController
+    # Function name : newsSave
+    # Author        :
+    # Created Date  : 31-03-2021
+    # Purpose       : News Save
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function ourbrandSave(Request $request){
+        
+        try
+        {
+            
+            if ($request->isMethod('POST'))
+            {
+            
+                $brandObj                      = new Brand ;
+                $brandObj->title_en            = trim($request->title_en, ' ');
+                $brandObj->title_ar            = trim($request->title_ar, ' ');
+               
+                if($request->file('press_image')) {
+                    $files1=$request->file('press_image');
+                    $fullFileName1 = time().'.'.$files1->getClientOriginalExtension();
+                    $destinationPath = 'assets/brand-images';
+                    $uploadResponse  = $files1->move($destinationPath,$fullFileName1);
+                    $brandObj->press_image=$fullFileName1; 
+                              
+                }
+                if($request->file('brochure')) {
+                    $files1=$request->file('brochure');
+                    $fullFileName1 = time().'.'.$files1->getClientOriginalExtension();
+                    $destinationPath = 'assets/brand-brochure';
+                    $uploadResponse  = $files1->move($destinationPath,$fullFileName1);
+                    $brandObj->brochure=$fullFileName1; 
+                              
+                }
+                if($request->file('mpthree')) {
+                    $files1=$request->file('mpthree');
+                    $fullFileName1 = time().'.'.$files1->getClientOriginalExtension();
+                    $destinationPath = 'assets/brand-mpthree';
+                    $uploadResponse  = $files1->move($destinationPath,$fullFileName1);
+                    $brandObj->mpthree=$fullFileName1; 
+                              
+                } 
+
+                $brandObj->created_at          = Carbon::now();
+                $brandObj->updated_at          = Carbon::now();
+                $save = $brandObj->save();            
+
+                if ($save) {
+             
+                    return redirect()->route('admin.ourbrand.list')->with('success','Brand has been added successfully.');;
+                } else {
+                    return redirect()->back()->with('error', 'An error occurred while adding the Brand');
+                }
+                
+            }
+            
+        } catch (Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        } 
+    }
+
+     /*****************************************************/
+    # OurbrandController
+    # Function name : NewsEdit
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : News Edit
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+
+    public function ourbrandEdit(Request $request, $encryptString) {
+        $this->data['page_title']='Brand Edit';
+        $this->data['panel_title']='Brand Edit';
+        $serviceId = decrypt($encryptString, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+        $this->data['details'] = Brand::findOrFail($serviceId);
+        $this->data['encryptCode'] = $encryptString;
+        //dd($this->data['details']);
+        return view('admin.ourbrand.edit',$this->data); 
+    }
+
+    /*****************************************************/
+    # OurbrandController
+    # Function name : Brand update
+    # Author        :
+    # Created Date  : 31-03-2021
+    # Purpose       :  update
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function update(Request $request){
+        try
+        {
+        	if ($request->isMethod('POST'))
+        	{
+                $newsId = !empty($request->encString) ? decrypt($request->encString, Config::get('Constant.ENC_KEY')) : 0;
+                
+                $newsModelObj =  Brand::findOrFail($newsId);
+                $newsModelObj->title_en            = trim($request->title_en, ' ');
+                $newsModelObj->title_ar            = trim($request->title_ar, ' ');
+                $newsModelObj->status              = $request->status;
+
+                if($request->file('press_image')) {
+                    $files1=$request->file('press_image');
+                    $fullFileName1 = time().'.'.$files1->getClientOriginalExtension();
+                    $destinationPath = 'assets/brand-images';
+                    $uploadResponse  = $files1->move($destinationPath,$fullFileName1);
+                    $newsModelObj->press_image=$fullFileName1; 
+                              
+                }
+                if($request->file('brochure')) {
+                    $files1=$request->file('brochure');
+                    $fullFileName1 = time().'.'.$files1->getClientOriginalExtension();
+                    $destinationPath = 'assets/brand-brochure';
+                    $uploadResponse  = $files1->move($destinationPath,$fullFileName1);
+                    $newsModelObj->brochure=$fullFileName1; 
+                              
+                }
+                if($request->file('mpthree')) {
+                    $files1=$request->file('mpthree');
+                    $fullFileName1 = time().'.'.$files1->getClientOriginalExtension();
+                    $destinationPath = 'assets/brand-mpthree';
+                    $uploadResponse  = $files1->move($destinationPath,$fullFileName1);
+                    $newsModelObj->mpthree=$fullFileName1; 
+                              
+                }
+
+                $newsModelObj->created_at          = Carbon::now();
+                $newsModelObj->updated_at          = Carbon::now();
+                $save = $newsModelObj->save(); 
+                if($save){
+                    return redirect()->route('admin.ourbrand.list')->with('success','Brand has been updated successfully.');;
+                
+                } else {
+                    return redirect()->back()->with('error', 'An error occurred while adding the Brand');
+                }
+				
+			}
+			
+		} catch (Exception $e) {
+			return redirect()->back()->with('error', $e->getMessage());
+        } 
+    }
+
+   
+
+    /*****************************************************/
+    # NewsController
+    # Function name : newsDelete
+    # Author        :
+    # Created Date  : 31-03-2021
+    # Purpose       : News Delete
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+    
+    public function ourbrandDelete(Request $request,$encryptString)
+    {
+
+        $serviceId = decrypt($encryptString, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+        $details = Brand::findOrFail($serviceId);
+
+
+        if ($details) {
+            $details->deleted_at=Carbon::now();
+            $details->save();
+            return redirect()->route('admin.ourbrand.list')->with('success','Brand has been deleted successfully!');
+        } else {
+            $request->session()->flash('alert-danger', 'An error occurred while deleting the Brand list');
+             return redirect()->back();
+        }
+    }
+
+    /*****************************************************/
+    # newsController
+    # Function name : resetNewsStatus
+    # Author        :
+    # Created Date  : 01-04-2021
+    # Purpose       : Reset News Status
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function resetourbrandStatus(Request $request){
+    
+        $response['has_error']=1;
+        $response['msg']="Something went wrong.Please try again later.";
+
+        $homeId = decrypt($request->encryptCode, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+
+        $homeObj = Brand::findOrFail($homeId);
+        $updateStatus = $homeObj->status == 'A' ? 'I' : 'A'; 
+        $homeObj->status=$updateStatus;
+        $homeObj->updated_at=Carbon::now();
+        //$homeObj->updated_by=Auth::guard('admin')->user()->id;
+        $saveResponse=$homeObj->save();       
+        if($saveResponse){
+            $response['has_error']=0;
+            $response['msg']="Succressfuuly changed status.";
+        }
+        return $response;
+    }
+
+    
+
+}

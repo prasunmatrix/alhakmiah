@@ -1,0 +1,156 @@
+<?php
+
+namespace App\Http\Controllers\admin;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use App\Models\User;
+use App\Models\OurAchievement;
+use App\Models\CmsImage;
+use App\Http\Requests\OurAchievementRequest;
+use App\Http\Requests\updateNewsRequest;
+use Helper, AdminHelper, Image, Validator,  View;
+use Illuminate\Support\Facades\Hash;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CmsExport;
+use Auth;
+use Redirect;
+use Carbon\Carbon;
+use Yajra\Datatables\Datatables;
+use Config;
+
+class OurAchievementController extends Controller
+{
+
+    public $data= array();
+    private static $paginationLimit= 10;
+
+
+    /*****************************************************/
+    # OurAchievementController
+    # Function name : ourAchievementList
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : Our Achievement List
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function ourAchievementList(Request $request){
+        $this->data['page_title']="Our Achievement List";
+        $this->data['panel_title']="Our Achievement List";
+        $searchKeyword = $_GET['q'] ?? '' ;
+        $ourAchievementObj= OurAchievement::select('*');  
+            if(!empty($searchKeyword))
+            $ourAchievementObj->orWhere('title_en', 'like', '%' .trim($searchKeyword) . '%');
+            $ourAchievementObj->orWhere('title_ar', 'like', '%' .trim($searchKeyword) . '%');
+            $ourAchievementObj->whereNull('deleted_at')->orderBy('id','desc')->get();  
+       $this->data['ourAchievementList']=$ourAchievementObj->paginate(self::$paginationLimit);
+        
+        return view('admin.ourachievement.list',$this->data);
+    }
+
+
+    public function ourAchievementAdd (Request $request){
+        $this->data['page_title']='Our Achievement Create ';
+        $this->data['panel_title']='Our Achievement Create ';
+    
+        return view('admin.ourachievement.add',$this->data);
+    }
+
+    public function ourAchievementSave (OurAchievementRequest $request){
+    try
+        {
+        	if ($request->isMethod('POST'))
+        	{
+                $ourAchievementId = !empty($request->encString) ? decrypt($request->encString, Config::get('Constant.ENC_KEY')) : 0;
+                
+                $ourAchievementModelObj = ($ourAchievementId == 0 ) ? new OurAchievement : OurAchievement::findOrFail($ourAchievementId);
+                $ourAchievementModelObj->title_en   = trim($request->title_en, ' ');
+                $ourAchievementModelObj->title_ar   = $request->title_ar;
+                $ourAchievementModelObj->description_en         = $request->description_en;
+                $ourAchievementModelObj->description_ar         = $request->description_ar;
+                $ourAchievementModelObj->year                   = $request->year;
+                $formattedDate=\Carbon::createFromFormat('d/m/Y',$request->year)->format('Y-m-d');
+                $ourAchievementModelObj->year                          =$formattedDate;
+                $file_name =time();
+                $file = $request->file('image'); 
+               
+                if($file){
+                    $extension = $file->getClientOriginalExtension();
+                    $fullFileName = $file_name.'.'.$extension; 
+                    $image_resize = Image::make($file->getRealPath())->resize(1000, 557);              
+                    $image_resize->save(public_path('assets/ourachievement/' .$fullFileName));
+                    $ourAchievementModelObj->image              = $fullFileName;
+                }
+                $ourAchievementModelObj->status            = $request->status;
+                $ourAchievementModelObj->created_at        =Carbon::now();
+                $ourAchievementModelObj->updated_at        =Carbon::now();
+                $save = $ourAchievementModelObj->save();
+					if ($save) {
+                        $msg = ($ourAchievementId == 0 ) ? 'Our Achievement has been added successfully.' : 'Our Achievement has been updated successfully.';
+						return redirect()->route('admin.our-achievements.list')->with('success',$msg);
+					} else {
+						return redirect()->back()->with('error', 'An error occurred while adding the Our Achievement');
+					}
+				
+			}
+			
+		} catch (Exception $e) {
+			return redirect()->back()->with('error', $e->getMessage());
+        } 
+
+
+    }
+
+
+    public function ourAchievementEdit(Request $request, $encryptString) {
+        $this->data['page_title']='Our Achievement Edit';
+        $this->data['panel_title']='Our Achievement Edit';
+        $ourAchievementId = decrypt($encryptString, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+        $this->data['details'] = OurAchievement::findOrFail($ourAchievementId);
+        $this->data['encryptCode'] = $encryptString;
+        //dd($this->data['details']);
+        return view('admin.ourachievement.edit',$this->data); 
+    }
+
+
+    public function ourAchievementDelete(Request $request,$encryptString)
+    {
+
+        $ourAchievementId = decrypt($encryptString, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+        $details = OurAchievement::findOrFail($ourAchievementId);
+
+        if ($details) {
+            $details->deleted_at=Carbon::now();
+            $details->save();
+            return redirect()->route('admin.our-achievements.list')->with('success','Our Achievement has been deleted successfully!');
+        } else {
+            $request->session()->flash('alert-danger', 'An error occurred while deleting the Our Achievement list');
+             return redirect()->back();
+        }
+    }
+
+
+    public function resetourAchievementStatus(Request $request){
+    
+        $response['has_error']=1;
+        $response['msg']="Something went wrong.Please try again later.";
+
+        $ourAchievementId = decrypt($request->encryptCode, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+
+        $ourAchievementModelObj = OurAchievement::findOrFail($ourAchievementId);
+        $updateStatus = $ourAchievementModelObj->status == 'A' ? 'I' : 'A'; 
+        $ourAchievementModelObj->status=$updateStatus;
+        $ourAchievementModelObj->updated_at=Carbon::now();
+        $saveResponse=$ourAchievementModelObj->save();       
+        if($saveResponse){
+            $response['has_error']=0;
+            $response['msg']="Successfully changed status.";
+        }
+        return $response;
+    }
+    
+}

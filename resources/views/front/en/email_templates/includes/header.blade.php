@@ -1,0 +1,1 @@
+<p><img class="amb-logo" alt="site logo" src="{{ asset('/front/en/assets/images/logo.png') }}"></p>

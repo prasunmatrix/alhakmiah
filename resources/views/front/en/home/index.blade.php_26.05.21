@@ -1,0 +1,255 @@
+@extends('front.en.layout.inner')
+@section('page-content')
+
+   <!-- <section class="hero-banner" >
+    <div class="owl-carousel heroslide">
+    @foreach($banners as $data)
+        @if (!empty($data['banner']))
+       <div class="item" style="background-image: url('{{ asset('/assets/cms/banner_images') }}/{{ $data['banner'] }}');">
+        @else
+            <div class="item" style="background-image: url('{{ asset('/front/ar') }}/assets/images/home-banner-1.jpg');">
+        @endif
+
+        <div class="heroslide-txt">
+          <div class="container">
+            <div class="row align-items-center">
+              <div class="col-12">
+                <h1>{{$data['title_en']}}</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    @endforeach 
+    </div>
+  </section> -->
+   <section class="hero-banner" data-aos="fade-up" data-aos-delay="1000">
+    <div class="owl-carousel heroslide">
+     
+      @foreach($banners as $data)
+        
+        <div class="item">
+          @if($data->type=="image")
+          <img src="{{ asset('/assets/cms/banner_images/'.$data['banner'])}}" alt="">
+          @else
+          <video autoplay="" loop="" audio="0">
+            <source src="{{URL::asset("/assets/cms/banner_images/$data->banner")}}" type="video/mp4"> 
+           Your browser does not support the video tag.
+           </video>
+           @endif
+          <div class="heroslide-txt">
+            <div class="container">
+              <div class="row align-items-center">
+                <div class="col-12">
+                  <h1>{{$data['title_en']}}</h1>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      @endforeach
+    </div>
+  </section>
+@if($homePageSetting->count() > 0)
+  <section class="welcome">
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+          <div class="welcome-main">
+            
+            <h2>{{$homePageSetting['title_en']}}</h2>
+            <p >{!! $homePageSetting['description_en'] !!}
+            </p>
+            
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+@endif
+@if($homeProject->count() > 0)
+  <section class="latest-project">
+    <div class="container">
+      <div class="row align-items-center">
+        <div class="col-lg-6">
+          <div class="latest-project-right">
+            @if (!empty($homeProject['featured_image']))
+                <img src="{{ asset('/admin/upload/project/featured_image/'.$homeProject->featured_image) }}" alt="">
+            @else
+                <img src="{{ asset('/admin/upload/common/no-image-found.jpg') }}" alt="">
+            @endif
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="latest-project-left">
+          
+          <h2>{{$homeProject['name']}}</h2>
+          <p>{{substr($homeProject['content'],0,300)}}</p>
+          
+          
+          <a class="site-link" href="{{route('projectdetail.detail',[$homeProject['slug_name']])}}">Read More</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+@endif
+@if($homePageGallery->count() > 0)
+  <section class="welcome alt">
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+          <div class="welcome-main">
+            
+            <h2 >{{$homePageGallery['title_en']}}</h2>
+            <p >{{$homePageGallery['description_en']}}</p>
+            
+          
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+@endif
+  <section class="prop-img">
+    <div class="container-fluid">
+      <div class="owl-carousel prop-slide">
+      @foreach($homeGallery as $data)
+        <div class="item">
+          <div class="prop-slide-single">
+            @if (!empty($data->image))
+            <a href="{{ asset('/assets/cms/gallery') }}/{{ $data->image }}" class="html5lightbox">
+                <img src="{{ asset('/assets/cms/gallery') }}/{{ $data->image }}" alt=""></a>
+            @else
+                <img src="{{ asset('/admin/upload/common/no-image-found.jpg') }}" alt="">
+            @endif
+
+          </div>
+        </div>
+       @endforeach 
+
+      </div>
+    </div>
+  </section>
+
+@if(count($homeService) > 0)
+  <section class="benefits">
+    <div class="container">
+      <h2>Lorem ipsum dolor sit amet,<br>
+       consectetur adipiscing elit</h2>
+      <div class="benefits-main">
+        <div class="row">
+
+        
+        @foreach($homeService as $data)
+          <div class="col-lg-4" >
+            <div class="benefits-single">
+            
+              <h3>{{$data['title_en'] }}</h3>
+              <p>{{substr($data['description_en'],0,150)}}</p>
+
+
+              <a class="site-link blue" href="{{ url('/') }}/service/#each-service-{{$data['id']}}">Read More</a>
+            </div>
+          </div>
+        @endforeach
+
+        
+  
+        </div>
+      </div>
+    </div>
+  </section>
+@endif
+@if(count($homeNews) > 0)
+  <section class="architecture alt">
+    <div class="container">
+      <h2>latest news</h2>
+    </div>
+  </section>
+
+  <section class="text-sec news-txt">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-12">
+          <div class="news-slide">
+            <div class="owl-carousel owl-theme" id="newsslider">      
+              @foreach($homeNews as $data)
+              <div class="box">
+                <div class="title"><h2>{{ $data['title_en'] }}</h2></div>
+                <div class="pic"><img src="{{ asset('/assets/images') }}/{{ $data->slider_1 }}" alt=""></div>
+                <div class="txt">                  
+                  <p> {!! ($data->short_description_en) !!}</p>
+                  <a class="site-link gradient" href="{{ url('/') }}/news-details/{{ $data['slug_name'] }}">Read More</a>
+                </div>                
+              </div>
+              
+              @endforeach
+            </div> 
+          </div> 
+        </div>
+      </div>
+    </div>
+  </section>
+@endif
+  <section class="architecture sec" >
+    <div class="container">
+      <h2>Our Achievements</h2>
+    </div>
+  </section>
+
+  @if(count($homeNewSliders) > 0)
+  <section class="sec-archive">
+    <div class="container">
+      <div class="owl-carousel archive-slide">
+
+        @foreach($homeNewSliders as $data)
+        <div class="item">
+          <div class="item-row">
+
+              @php
+              $year=  \Carbon::parse($data->year)->format('Y')  ;
+               $explodedData = str_split($year);
+                                   $indexZero = $explodedData[0];
+                                   $indexOne=  $explodedData[1];
+                                   $indexTwo=  $explodedData[2];
+                                   $indexThree=  $explodedData[3];
+              @endphp
+            
+              <div class="archive-slide-txt">
+                <p>{!!($data->description_en)!!}</p>
+              </div>
+           
+            
+              <div class="archive-slide-pic">
+     
+                @if (!empty($data->image))
+                    <img src="{{ asset('/assets/ourachievement/'.$data->image) }}" alt="">
+                @else
+                    <img src="{{ asset('/admin/upload/common/no-image-found.jpg') }}" alt="">
+                @endif
+              </div>
+          
+              <div class="archive-slide-date">
+               <!--  @if (!empty($data->slider_2))
+                    <img src="{{ asset('/assets/images') }}/{{ $data->slider_2 }}" alt="">
+                @else
+                    <img src="{{ asset('/admin/upload/common/no-image-found.jpg') }}" alt="">
+                @endif -->
+                <span class="date-each">{{$indexZero.$indexOne}}</span>
+                <span class="date-each">{{$indexTwo.$indexThree }}</span>
+              </div>
+           
+
+          </div>
+        </div>
+        @endforeach
+
+      </div>
+    </div>
+  </section>
+@endif
+
+
+@endsection
+

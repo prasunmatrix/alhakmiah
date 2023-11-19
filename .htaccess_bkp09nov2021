@@ -1,0 +1,42 @@
+<IfModule mod_rewrite.c>
+# That was ONLY to protect you from 500 errors
+# if your server did not have mod_rewrite enabled
+RewriteEngine On
+# RewriteBase /
+# NOT needed unless you're using mod_alias to redirect
+
+#RewriteCond https://%{REQUEST_URI} !/public
+#RewriteRule ^(.*)$ public/$1 [L]
+
+#RewriteCond https://%{REQUEST_URI} !/public
+#RewriteRule ^(.*)$ https://%{HTTP_HOST}/public/$1 [L]
+
+#RewriteCond %{HTTP:X-Forwarded-Proto} !https
+#RewriteCond %{HTTPS} off
+#RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+#RewriteRule ^(.*)$ public/$1 [L]
+
+
+
+
+
+RewriteBase /
+RewriteCond %{HTTP_HOST} ^52\.66\.108\.197$
+#RewriteCond %{REMOTE_HOST} 52\.66\.108\.197
+RewriteRule ^(.*)$ https://alhakmiah.sa/$1 [L,R=301]
+RewriteRule ^(.*)$ public/$1 [L]
+
+#RewriteCond %{REMOTE_HOST} 52\.66\.108\.197
+
+
+
+# Direct all requests to /public folder
+<Files .env>
+    Order allow,deny
+    Deny from all
+</Files>
+<Files composer.json>
+    Order allow,deny
+    Deny from all
+</Files>
+</IfModule>

@@ -1,0 +1,278 @@
+<?php
+
+namespace App\Http\Controllers\admin;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Models\News;
+use App\Models\CmsImage;
+use App\Http\Requests\NewsRequest;
+use App\Http\Requests\updateNewsRequest;
+use Helper, AdminHelper, Image, Validator,  View;
+use Illuminate\Support\Facades\Hash;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CmsExport;
+use Auth;
+use Redirect;
+use Carbon\Carbon;
+use Yajra\Datatables\Datatables;
+use Config;
+
+
+
+class NewsController extends Controller
+{
+    public $data= array();
+    private static $paginationLimit= 10;
+
+
+    /*****************************************************/
+    # NewsController
+    # Function name : newsList
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : news Listing
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function newsList(Request $request){
+        $this->data['page_title']="News List";
+        $this->data['panel_title']="News List";
+        $searchKeyword = $_GET['q'] ?? '' ;
+        $newsObj= News::select('*');  
+            if(!empty($searchKeyword))
+            $newsObj->orWhere('title_en', 'like', '%' .trim($searchKeyword) . '%');
+            $newsObj->orWhere('title_ar', 'like', '%' .trim($searchKeyword) . '%');
+            $newsObj->whereNull('deleted_at')->orderBy('id','desc')->get();  
+       $this->data['newsList']=$newsObj->paginate(self::$paginationLimit);
+        
+        return view('admin.news.list',$this->data);
+    }
+
+
+    public function newsAdd (Request $request){
+        $this->data['page_title']='News Create ';
+        $this->data['panel_title']='News Create ';
+    
+        return view('admin.news.add',$this->data);
+    }
+
+    /*****************************************************/
+    # FaqController
+    # Function name : newsSave
+    # Author        :
+    # Created Date  : 31-03-2021
+    # Purpose       : News Save
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function newsSave(NewsRequest $request){
+        
+        try
+        {
+            if ($request->isMethod('POST'))
+            {
+               
+                $newsModelObj                      = new News ;
+                $newsModelObj->title_en            = trim($request->title_en, ' ');
+                $newsModelObj->title_ar            = trim($request->title_ar, ' ');
+                $newsModelObj->slug_name           = Str::slug($request->title_en, '-'); 
+                $newsModelObj->description_en      = $request->description_en;
+                $newsModelObj->description_ar      = $request->description_ar;
+                if($request->file('slider_1')) {
+                    $files1=$request->file('slider_1');
+
+
+                
+                    $fullFileName1 = time().'.'.$files1->getClientOriginalExtension();
+                    $destinationPath = 'assets/images';
+                    $uploadResponse  = $files1->move($destinationPath,$fullFileName1);
+                    $newsModelObj->slider_1=$fullFileName1; 
+                              
+                }
+                if($request->file('slider_2')) {
+                    $files=$request->file('slider_2');
+            
+                    $fullFileName2 = time().'.'.$files->getClientOriginalExtension();
+                    $destinationPath = 'assets/images';
+                    $uploadResponse  = $files->move($destinationPath,$fullFileName2);
+                    $newsModelObj->slider_2=$fullFileName2; 
+                              
+                }
+                $newsModelObj->created_at          = Carbon::now();
+                $newsModelObj->updated_at          = Carbon::now();
+                $save = $newsModelObj->save();            
+
+                if ($save) {
+             
+                    return redirect()->route('admin.news.news.list')->with('success','News has been added successfully.');;
+                } else {
+                    return redirect()->back()->with('error', 'An error occurred while adding the Cms');
+                }
+                
+            }
+            
+        } catch (Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        } 
+    }
+
+     /*****************************************************/
+    # NewsController
+    # Function name : NewsEdit
+    # Author        :
+    # Created Date  : 20-07-2020
+    # Purpose       : News Edit
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+
+    public function newsEdit(Request $request, $encryptString) {
+        $this->data['page_title']='News Edit';
+        $this->data['panel_title']='News Edit';
+        $serviceId = decrypt($encryptString, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+        $this->data['details'] = News::findOrFail($serviceId);
+        $this->data['encryptCode'] = $encryptString;
+        //dd($this->data['details']);
+        return view('admin.news.edit',$this->data); 
+    }
+
+   
+
+    /*****************************************************/
+    # NewsController
+    # Function name : news update
+    # Author        :
+    # Created Date  : 31-03-2021
+    # Purpose       :  update
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function update(updateNewsRequest $request){
+
+        try
+        {
+        	if ($request->isMethod('POST'))
+        	{
+                $newsId = !empty($request->encString) ? decrypt($request->encString, Config::get('Constant.ENC_KEY')) : 0;
+                
+                $newsModelObj =  News::findOrFail($newsId);
+
+
+                $newsModelObj->title_en            = trim($request->title_en, ' ');
+                $newsModelObj->title_ar            = trim($request->title_ar, ' ');
+                $newsModelObj->slug_name           = Str::slug($request->title_en, '-'); 
+                $newsModelObj->description_en      = $request->description_en;
+                $newsModelObj->description_ar      = $request->description_ar;
+                $newsModelObj->status              = $request->status;
+                if($request->file('slider_1')) {
+                    $files1=$request->file('slider_1');
+                     
+                
+                    $fullFileName1 = time().'.'.$files1->getClientOriginalExtension();
+                    $destinationPath1 = 'assets/images';
+                    $uploadResponse1  = $files1->move($destinationPath1,$fullFileName1);
+                    $newsModelObj->slider_1=$fullFileName1; 
+                              
+                }
+                if($request->file('slider_2')) {
+                    $files=$request->file('slider_2');
+            
+                    $fullFileName2 = time().'.'.$files->getClientOriginalExtension();
+                    $destinationPath2 = 'assets/images';
+                    $uploadResponse2  = $files->move($destinationPath2,$fullFileName2);
+                    $newsModelObj->slider_2=$fullFileName2; 
+                              
+                }
+                $newsModelObj->created_at          = Carbon::now();
+                $newsModelObj->updated_at          = Carbon::now();
+                $save = $newsModelObj->save(); 
+
+                
+                if($save){
+                    return redirect()->route('admin.news.news.list')->with('success','News has been updated successfully.');;
+                
+                } else {
+                    return redirect()->back()->with('error', 'An error occurred while adding the Cms');
+                }
+				
+			}
+			
+		} catch (Exception $e) {
+			return redirect()->back()->with('error', $e->getMessage());
+        } 
+    }
+
+   
+
+    /*****************************************************/
+    # NewsController
+    # Function name : newsDelete
+    # Author        :
+    # Created Date  : 31-03-2021
+    # Purpose       : News Delete
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+    
+    public function newsDelete(Request $request,$encryptString)
+    {
+
+        $serviceId = decrypt($encryptString, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+        $details = News::findOrFail($serviceId);
+
+
+        if ($details) {
+            $details->deleted_at=Carbon::now();
+            $details->save();
+            return redirect()->route('admin.news.news.list')->with('success','News has been deleted successfully!');
+        } else {
+            $request->session()->flash('alert-danger', 'An error occurred while deleting the Cms list');
+             return redirect()->back();
+        }
+    }
+
+    /*****************************************************/
+    # newsController
+    # Function name : resetNewsStatus
+    # Author        :
+    # Created Date  : 01-04-2021
+    # Purpose       : Reset News Status
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function resetNewsStatus(Request $request){
+    
+        $response['has_error']=1;
+        $response['msg']="Something went wrong.Please try again later.";
+
+        $homeId = decrypt($request->encryptCode, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+
+        $homeObj = News::findOrFail($homeId);
+        $updateStatus = $homeObj->status == 'A' ? 'I' : 'A'; 
+        $homeObj->status=$updateStatus;
+        $homeObj->updated_at=Carbon::now();
+        $homeObj->updated_by=Auth::guard('admin')->user()->id;
+        $saveResponse=$homeObj->save();       
+        if($saveResponse){
+            $response['has_error']=0;
+            $response['msg']="Succressfuuly changed status.";
+        }
+        return $response;
+    }
+
+ 
+
+}

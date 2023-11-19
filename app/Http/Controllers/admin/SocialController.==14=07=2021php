@@ -1,0 +1,131 @@
+<?php
+
+namespace App\Http\Controllers\admin;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Models\Social;
+use App\Http\Requests\SocialRequest;
+use App\Http\Requests\updateSocialRequest;
+use Helper, AdminHelper, Image, Validator,  View;
+use Illuminate\Support\Facades\Hash;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CmsExport;
+use Auth;
+use Redirect;
+use Carbon\Carbon;
+use Yajra\Datatables\Datatables;
+use Config;
+
+
+
+class SocialController extends Controller
+{
+    public $data= array();
+   
+
+    /************SocialController*****************************************/
+    # SocialController
+    # Function name : socialEdit
+    # Author        :
+    # Created Date  : 05-04-2021
+    # Purpose       : Social Edit
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+
+    public function socialEdit(Request $request) {
+        $this->data['page_title']='Social Edit';
+        $this->data['panel_title']='Social Edit';
+        $encryptString= encrypt('1', Config::get('Constant.ENC_KEY'));; 
+        $socialId = decrypt($encryptString, Config::get('Constant.ENC_KEY')); // get user-id After Decrypt with salt key.
+        $this->data['details'] = Social::findOrFail($socialId);
+        $this->data['encryptCode'] = $encryptString;
+        //dd($this->data['details']);
+        return view('admin.social_link.edit',$this->data); 
+    }
+
+    /*****************************************************/
+    # SocialController
+    # Function name : service update
+    # Author        :
+    # Created Date  : 31-03-2021
+    # Purpose       :  update
+    #                 
+    #                 
+    # Params        : 
+    /*****************************************************/
+
+    public function update(updateSocialRequest $request){
+   
+        
+        try
+        {
+        	if ($request->isMethod('POST'))
+        	{
+
+                $socialId = !empty($request->encString) ? decrypt($request->encString, Config::get('Constant.ENC_KEY')) : 0;
+                
+                $socialModelObj =  Social::findOrFail($socialId);
+                $socialModelObj->facebook        = trim($request->facebook, ' ');
+                $socialModelObj->youtube         = trim($request->youtube, ' ');
+                $socialModelObj->linkedin        = trim($request->linkedin, ' ');
+                $socialModelObj->instagram       = trim($request->instagram, ' ');
+                $socialModelObj->twitter         = trim($request->twitter, ' ');
+                $socialModelObj->whatsapp        = trim($request->whatsapp, ' ');
+                $socialModelObj->linkedin        = trim($request->linkedin, ' ');
+                $socialModelObj->project_details_service_heading_en     = trim($request->project_details_service_heading_en, ' ');
+                $socialModelObj->project_details_service_heading_ar     = trim($request->project_details_service_heading_ar, ' ');
+                $socialModelObj->project_details_unit_heading_en        = trim($request->project_details_unit_heading_en, ' ');
+                $socialModelObj->project_details_unit_heading_ar        = trim($request->project_details_unit_heading_ar, ' ');
+                $socialModelObj->our_responsibility_heading             = trim($request->our_responsibility_heading, ' ');
+                $socialModelObj->our_responsibility_heading_ar             = trim($request->our_responsibility_heading_ar, ' ');
+                $socialModelObj->email           = trim($request->email, ' ');
+                $socialModelObj->contact_us_email           = trim($request->contact_us_email, ' ');
+                $socialModelObj->join_us_email           = trim($request->join_us_email, ' ');
+                $socialModelObj->phone           = trim($request->phone, ' ');
+                if($request->file('header_logo')) {
+                    $files=$request->file('header_logo');
+                    $fullFileName = time().'.'.$files->getClientOriginalExtension();
+                    $destinationPath               = 'assets/images';
+                    $uploadResponse                = $files->move($destinationPath,$fullFileName);
+                    $socialModelObj->header_logo=$fullFileName;
+                }
+                if($request->file('footer_logo')) {
+                    $files=$request->file('footer_logo');
+                    $fullFileName = time().'.'.$files->getClientOriginalExtension();
+                    $destinationPath               = 'assets/images';
+                    $uploadResponse                = $files->move($destinationPath,$fullFileName);
+                    $socialModelObj->footer_logo=$fullFileName;
+                }
+
+                $socialModelObj->status          = $request->status;
+                $socialModelObj->created_at      = Carbon::now();
+                $socialModelObj->updated_at      = Carbon::now();
+                $save = $socialModelObj->save(); 
+
+                
+                if($save){
+                    return redirect()->route('admin.social.edit')->with('success','social has been updated successfully.');;
+                
+                } else {
+                    return redirect()->back()->with('error', 'An error occurred while adding the Cms');
+                }
+				
+			}
+			
+		} catch (Exception $e) {
+			return redirect()->back()->with('error', $e->getMessage());
+        } 
+    }
+
+    
+
+
+
+ 
+
+}
